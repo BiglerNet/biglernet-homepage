@@ -22,7 +22,7 @@ host (no server-side rendering, no API, no database).
 
 ### Required Kubernetes Resources
 
-- **Namespaces**: `biglernet-home-test`, `biglernet-home-prod` — created once
+- **Namespaces**: `biglernethome-test`, `biglernethome-prod` — created once
   via `kubectl apply -f kubernetes/bootstrap/namespaces.yaml` (see
   [`docs/ci-bootstrap.md`](docs/ci-bootstrap.md))
 - **Ingress Controller**: Traefik with `websecure` entrypoint
@@ -35,9 +35,9 @@ Every push to `main` triggers `.github/workflows/deploy.yml`, which:
 
 1. Builds a multi-arch (`linux/amd64` + `linux/arm64`) image and pushes it to
    `ghcr.io/<owner>/biglernet-homepage`
-2. Deploys it to `biglernet-home-test`, waits for rollout, and runs a smoke
+2. Deploys it to `biglernethome-test`, waits for rollout, and runs a smoke
    check against `https://homepage-test.biglernet.com`
-3. On success, automatically deploys the same image to `biglernet-home-prod`
+3. On success, automatically deploys the same image to `biglernethome-prod`
    and smoke-checks `https://biglernet.com`
 
 Deploy jobs run on the org's self-hosted ARC runner set
@@ -97,9 +97,9 @@ kubectl apply -k kubernetes/overlays/test
 # Point the deployment at a specific image tag
 kubectl set image deployment/biglernet-website \
   website=ghcr.io/<owner>/biglernet-homepage:<tag> \
-  -n biglernet-home-test
+  -n biglernethome-test
 
-kubectl rollout status deployment/biglernet-website -n biglernet-home-test
+kubectl rollout status deployment/biglernet-website -n biglernethome-test
 ```
 
 Swap `test` for `prod` (and the namespace) to deploy to production the same
@@ -108,25 +108,33 @@ way.
 ### Verify Deployment
 
 ```bash
-kubectl get pods -n biglernet-home-prod
-kubectl get deployment -n biglernet-home-prod
-kubectl get service -n biglernet-home-prod
-kubectl get ingress -n biglernet-home-prod
-kubectl logs -n biglernet-home-prod -l app=biglernet-website -f
+kubectl get pods -n biglernethome-prod
+kubectl get deployment -n biglernethome-prod
+kubectl get service -n biglernethome-prod
+kubectl get ingress -n biglernethome-prod
+kubectl logs -n biglernethome-prod -l app=biglernet-website -f
 ```
 
 ## Environments
 
 | | Test | Production |
 |---|---|---|
-| Namespace | `biglernet-home-test` | `biglernet-home-prod` |
+| Namespace | `biglernethome-test` | `biglernethome-prod` |
 | Replicas | 1 | 3 |
 | Host(s) | `homepage-test.biglernet.com` | `biglernet.com`, `www.biglernet.com` |
 | Overlay | `kubernetes/overlays/test/` | `kubernetes/overlays/prod/` |
 
-### Resource Limits
+### Resource Limits & Establishing a Baseline
 
-Set in `kubernetes/base/deployment.yaml` (shared by both environments):
+Both namespaces carry the `goldilocks.fairwinds.com/enabled: "true"` label
+(`kubernetes/bootstrap/namespaces.yaml`), so Goldilocks auto-creates a
+recommendation-only `VerticalPodAutoscaler` for the Deployment in each — no
+manual VPA object needed. This is the same opt-in mechanism used elsewhere
+in the org (see `biglernet-private-cloud/platform/goldilocks`).
+
+The values currently in `kubernetes/base/deployment.yaml` (shared by both
+environments) are a starting baseline, not a measured one — this app hasn't
+served real traffic yet:
 
 ```yaml
 resources:
@@ -138,13 +146,20 @@ resources:
     cpu: "200m"
 ```
 
+Once both environments have run under real traffic for a while, follow the
+org's established workflow rather than trusting the recommendation as-is:
+read the recommendation at `goldilocks.biglernet.com`, pad it, and hand-copy
+the padded numbers into `kubernetes/base/deployment.yaml`. Goldilocks is
+left in recommendation-only mode (`updateMode: "off"`) deliberately — it
+never resizes the Deployment itself.
+
 ## Troubleshooting
 
 ### Pod CrashLoopBackOff
 
 ```bash
-kubectl logs -n biglernet-home-prod <pod-name>
-kubectl describe pod -n biglernet-home-prod <pod-name>
+kubectl logs -n biglernethome-prod <pod-name>
+kubectl describe pod -n biglernethome-prod <pod-name>
 ```
 
 ### Ingress Not Routing Traffic
@@ -152,8 +167,8 @@ kubectl describe pod -n biglernet-home-prod <pod-name>
 **Symptoms**: HTTP 502 or connection refused.
 
 ```bash
-kubectl get ingress -n biglernet-home-prod
-kubectl get endpoints -n biglernet-home-prod
+kubectl get ingress -n biglernethome-prod
+kubectl get endpoints -n biglernethome-prod
 kubectl logs -n traefik <traefik-pod-name>
 ```
 
@@ -165,27 +180,27 @@ an `imagePullSecrets` entry.
 
 ```bash
 docker pull ghcr.io/<owner>/biglernet-homepage:latest
-kubectl describe pod -n biglernet-home-prod <pod-name>
+kubectl describe pod -n biglernethome-prod <pod-name>
 ```
 
 ### 404 Not Found on Static Files
 
 ```bash
-kubectl exec -n biglernet-home-prod <pod-name> -- ls -la /app/wwwroot
+kubectl exec -n biglernethome-prod <pod-name> -- ls -la /app/wwwroot
 ```
 
 ### Debugging Commands
 
 ```bash
-kubectl get all -n biglernet-home-prod
-kubectl top pods -n biglernet-home-prod
-kubectl port-forward -n biglernet-home-prod svc/biglernet-website-service 8080:80
+kubectl get all -n biglernethome-prod
+kubectl top pods -n biglernethome-prod
+kubectl port-forward -n biglernethome-prod svc/biglernet-website-service 8080:80
 ```
 
 ### Rolling Back
 
 ```bash
-kubectl rollout undo deployment/biglernet-website -n biglernet-home-prod
+kubectl rollout undo deployment/biglernet-website -n biglernethome-prod
 ```
 
 Or re-run the deploy workflow with `image_tag` set to a previous known-good

@@ -16,7 +16,10 @@ namespaces itself, and shouldn't be granted the cluster-wide permission to.
 kubectl apply -f kubernetes/bootstrap/namespaces.yaml
 ```
 
-This creates `biglernet-home-test` and `biglernet-home-prod`.
+This creates `biglernethome-test` and `biglernethome-prod`, both already
+labeled `goldilocks.fairwinds.com/enabled: "true"` — Goldilocks (assumed
+already installed cluster-wide, per `biglernet-private-cloud/platform/goldilocks`)
+picks these up automatically; no separate opt-in step needed here.
 
 ## 2. Scoped ServiceAccount + RBAC for the deploy pipeline
 
@@ -49,7 +52,7 @@ rules:
 EOF
 
 # Bind it in this app's two namespaces only
-for ns in biglernet-home-test biglernet-home-prod; do
+for ns in biglernethome-test biglernethome-prod; do
   kubectl create rolebinding biglernet-homepage-ci-deployer \
     --clusterrole=biglernet-homepage-deployer \
     --serviceaccount=biglernet-homepage-ci:biglernet-homepage-ci \
@@ -87,7 +90,7 @@ clusters:
 contexts:
 - context:
     cluster: biglernet
-    namespace: biglernet-home-test
+    namespace: biglernethome-test
     user: biglernet-homepage-ci
   name: biglernet-homepage-ci
 current-context: biglernet-homepage-ci
@@ -127,7 +130,7 @@ settings** → Danger Zone → **Change visibility** → Public.
 
 If you'd rather keep it private, create an `imagePullSecrets` entry instead
 (a PAT with `read:packages`, wired as a `kubernetes.io/dockerconfigjson`
-Secret in both `biglernet-home-test` and `biglernet-home-prod`, referenced
+Secret in both `biglernethome-test` and `biglernethome-prod`, referenced
 from `kubernetes/base/deployment.yaml`) — not set up here since it adds an
 extra secret to rotate for no real benefit on this app.
 
