@@ -2,18 +2,28 @@
 # The CI ServiceAccount's RBAC (see docs/ci-bootstrap.md) is only ever bound
 # per-namespace via RoleBinding, so it cannot create namespaces itself.
 # `kubectl apply -f kubernetes/bootstrap/namespaces.yaml`
+#
+# `goldilocks.fairwinds.com/enabled: "true"` opts each namespace into
+# Fairwinds Goldilocks (see platform/goldilocks in biglernet-private-cloud).
+# Goldilocks auto-creates a VerticalPodAutoscaler per Deployment here in
+# recommendation-only mode (updateMode: "off" — it never resizes anything
+# itself); read recommendations at goldilocks.biglernet.com and hand-copy
+# padded numbers into kubernetes/base/deployment.yaml, matching the org's
+# established review-then-apply workflow instead of live auto-resize.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: biglernet-home-test
+  name: biglernethome-test
   labels:
-    name: biglernet-home-test
+    name: biglernethome-test
     managed-by: biglernet
+    goldilocks.fairwinds.com/enabled: "true"
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: biglernet-home-prod
+  name: biglernethome-prod
   labels:
-    name: biglernet-home-prod
+    name: biglernethome-prod
     managed-by: biglernet
+    goldilocks.fairwinds.com/enabled: "true"

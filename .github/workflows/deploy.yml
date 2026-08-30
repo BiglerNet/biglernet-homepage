@@ -1,5 +1,5 @@
 # Builds the multi-arch image, pushes it to GHCR, then deploys to
-# biglernet-home-test followed by biglernet-home-prod. See docs/ci-bootstrap.md
+# biglernethome-test followed by biglernethome-prod. See docs/ci-bootstrap.md
 # for the one-time manual setup this depends on (namespaces, scoped
 # ServiceAccount/RBAC, HOMEPAGE_KUBECONFIG secret).
 #
@@ -138,7 +138,7 @@ jobs:
           EOF
           kubectl apply -k kubernetes/overlays/test
           kubectl rollout status deployment/biglernet-website \
-            -n biglernet-home-test --timeout=120s
+            -n biglernethome-test --timeout=120s
 
       - name: Smoke check
         shell: bash
@@ -201,7 +201,7 @@ jobs:
           EOF
           kubectl apply -k kubernetes/overlays/prod
           kubectl rollout status deployment/biglernet-website \
-            -n biglernet-home-prod --timeout=120s
+            -n biglernethome-prod --timeout=120s
 
       - name: Smoke check
         shell: bash

@@ -18,7 +18,7 @@ The system SHALL provide Kustomize-based Kubernetes manifests to deploy the appl
 
 #### Scenario: Deployment manifest is valid
 - **WHEN** user applies an overlay with `kubectl apply -k kubernetes/overlays/prod`
-- **THEN** a Kubernetes Deployment resource is created with the `website` container in namespace `biglernet-home-prod` at 3 replicas
+- **THEN** a Kubernetes Deployment resource is created with the `website` container in namespace `biglernethome-prod` at 3 replicas
 
 #### Scenario: Service exposes the application
 - **WHEN** the overlay is applied
@@ -65,7 +65,7 @@ The system SHALL automatically build, push, and deploy the application on every 
 
 #### Scenario: Push to main triggers a full deploy
 - **WHEN** a commit is pushed to `main` touching `src/`, `Dockerfile`, or `kubernetes/base|overlays`
-- **THEN** a multi-arch image is built and pushed to GHCR, deployed to `biglernet-home-test`, smoke-checked, and then automatically deployed to `biglernet-home-prod`
+- **THEN** a multi-arch image is built and pushed to GHCR, deployed to `biglernethome-test`, smoke-checked, and then automatically deployed to `biglernethome-prod`
 
 #### Scenario: Manual redeploy of an existing image
 - **WHEN** the deploy workflow is run manually with an `image_tag` input
