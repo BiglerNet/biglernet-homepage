@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# .NET build output (rebuilt inside the image; stale local output must
+# never be copied into the build context)
+**/bin/
+**/obj/
+publish/
+
+# IDE / tooling
+.vs/
+.vscode
+.idea
+.kilo/
+.kilocode/
+
+# Docs and project metadata not needed in the image
+*.md
+openspec/
+kubernetes/
+.github/
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db

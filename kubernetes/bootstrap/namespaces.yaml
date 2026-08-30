@@ -1,0 +1,19 @@
+# Applied once, by hand, by a cluster operator — NOT part of the CI pipeline.
+# The CI ServiceAccount's RBAC (see docs/ci-bootstrap.md) is only ever bound
+# per-namespace via RoleBinding, so it cannot create namespaces itself.
+# `kubectl apply -f kubernetes/bootstrap/namespaces.yaml`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: biglernet-home-test
+  labels:
+    name: biglernet-home-test
+    managed-by: biglernet
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: biglernet-home-prod
+  labels:
+    name: biglernet-home-prod
+    managed-by: biglernet

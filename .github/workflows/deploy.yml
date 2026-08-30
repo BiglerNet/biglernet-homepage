@@ -1,0 +1,219 @@
+# Builds the multi-arch image, pushes it to GHCR, then deploys to
+# biglernet-home-test followed by biglernet-home-prod. See docs/ci-bootstrap.md
+# for the one-time manual setup this depends on (namespaces, scoped
+# ServiceAccount/RBAC, HOMEPAGE_KUBECONFIG secret).
+#
+# `runs-on: biglernet-arc-runner-set` targets the org-wide ARC RunnerScaleSet
+# (see ../../biglernet-private-cloud/github-arc/README.md) — only the deploy
+# jobs use it, since only they need network access to the private cluster.
+# The image build itself doesn't touch the cluster, so it runs on a
+# GitHub-hosted runner instead, to avoid spending the org's own runner
+# capacity on it.
+
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "kubernetes/base/**"
+      - "kubernetes/overlays/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Existing image tag to (re)deploy (e.g. sha-abc1234). Leave blank to build from the current commit."
+        required: false
+        type: string
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/biglernet-homepage
+  # Must match the `image:` in kubernetes/base/deployment.yaml exactly — this
+  # is the name Kustomize's `images:` transformer matches on to rewrite it to
+  # $IMAGE:$TAG at apply time (see the Deploy steps below). It does NOT need
+  # to match $IMAGE itself; if github.repository_owner is ever not literally
+  # "biglernet" (fork, org rename), the transformer still correctly rewrites
+  # this placeholder to the real $IMAGE — nothing is ever actually deployed
+  # using this literal name.
+  BASE_IMAGE_NAME: ghcr.io/biglernet/biglernet-homepage
+
+concurrency:
+  group: biglernet-homepage-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & push image
+    if: ${{ !inputs.image_tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-test:
+    name: Deploy — test
+    needs: [build]
+    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: biglernet-arc-runner-set
+    environment: test
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        shell: bash
+        # inputs.image_tag is caller-controlled (workflow_dispatch) — routed
+        # through `env:` rather than interpolated straight into the script,
+        # so an adventurous tag value can't break out into shell syntax.
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            echo "tag=$IMAGE_TAG_INPUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up kubeconfig
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.HOMEPAGE_KUBECONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy
+        shell: bash
+        # TAG flows from the same caller-controlled input as above, so it's
+        # passed through env here too rather than spliced into the script.
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cat >> kubernetes/overlays/test/kustomization.yaml <<EOF
+          images:
+            - name: ${BASE_IMAGE_NAME}
+              newName: ${IMAGE}
+              newTag: ${TAG}
+          EOF
+          kubectl apply -k kubernetes/overlays/test
+          kubectl rollout status deployment/biglernet-website \
+            -n biglernet-home-test --timeout=120s
+
+      - name: Smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if curl -fsS -o /dev/null "https://homepage-test.biglernet.com/"; then
+              echo "Smoke check passed"
+              exit 0
+            fi
+            echo "Smoke check attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "Smoke check failed after 5 attempts"
+          exit 1
+
+  deploy-prod:
+    name: Deploy — production
+    needs: [deploy-test]
+    runs-on: biglernet-arc-runner-set
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        shell: bash
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            echo "tag=$IMAGE_TAG_INPUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up kubeconfig
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.HOMEPAGE_KUBECONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cat >> kubernetes/overlays/prod/kustomization.yaml <<EOF
+          images:
+            - name: ${BASE_IMAGE_NAME}
+              newName: ${IMAGE}
+              newTag: ${TAG}
+          EOF
+          kubectl apply -k kubernetes/overlays/prod
+          kubectl rollout status deployment/biglernet-website \
+            -n biglernet-home-prod --timeout=120s
+
+      - name: Smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if curl -fsS -o /dev/null "https://biglernet.com/"; then
+              echo "Smoke check passed"
+              exit 0
+            fi
+            echo "Smoke check attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "Smoke check failed after 5 attempts"
+          exit 1
