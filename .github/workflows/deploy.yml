@@ -114,6 +114,11 @@ jobs:
             echo "tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v5
+        with:
+          version: "v1.31.2"
+
       - name: Set up kubeconfig
         shell: bash
         run: |
@@ -178,6 +183,11 @@ jobs:
           else
             echo "tag=sha-$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v5
+        with:
+          version: "v1.31.2"
 
       - name: Set up kubeconfig
         shell: bash
