@@ -30,14 +30,18 @@ on:
         type: string
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/biglernet-homepage
-  # Must match the `image:` in kubernetes/base/deployment.yaml exactly — this
-  # is the name Kustomize's `images:` transformer matches on to rewrite it to
-  # $IMAGE:$TAG at apply time (see the Deploy steps below). It does NOT need
-  # to match $IMAGE itself; if github.repository_owner is ever not literally
-  # "biglernet" (fork, org rename), the transformer still correctly rewrites
-  # this placeholder to the real $IMAGE — nothing is ever actually deployed
-  # using this literal name.
+  # $IMAGE itself is resolved per-job by the "Resolve image name" step below,
+  # not set statically here — github.repository_owner carries the org/user's
+  # actual GitHub casing (e.g. "BiglerNet"), but OCI image references must be
+  # all-lowercase, so it has to be lowercased in a shell step rather than a
+  # plain env substitution.
+  #
+  # BASE_IMAGE_NAME must match the `image:` in kubernetes/base/deployment.yaml
+  # exactly — this is the name Kustomize's `images:` transformer matches on to
+  # rewrite it to $IMAGE:$TAG at apply time (see the Deploy steps below). It
+  # does NOT need to match $IMAGE itself; the transformer still correctly
+  # rewrites this placeholder to whatever $IMAGE resolves to — nothing is ever
+  # actually deployed using this literal name.
   BASE_IMAGE_NAME: ghcr.io/biglernet/biglernet-homepage
 
 concurrency:
@@ -55,6 +59,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve image name
+        shell: bash
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          echo "IMAGE=ghcr.io/$(printf '%s' "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')/biglernet-homepage" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -97,6 +109,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve image name
+        shell: bash
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          echo "IMAGE=ghcr.io/$(printf '%s' "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')/biglernet-homepage" >> "$GITHUB_ENV"
 
       - name: Resolve image tag
         id: tag
@@ -170,6 +190,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve image name
+        shell: bash
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          echo "IMAGE=ghcr.io/$(printf '%s' "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')/biglernet-homepage" >> "$GITHUB_ENV"
 
       - name: Resolve image tag
         id: tag
