@@ -27,7 +27,7 @@ docker stop biglernet-test && docker rm biglernet-test
 Normally deploys happen via GitHub Actions (`.github/workflows/deploy.yml`) on push to `main`. To apply manifests by hand:
 ```bash
 kubectl apply -k kubernetes/overlays/test   # or overlays/prod
-kubectl set image deployment/biglernet-website website=ghcr.io/<owner>/biglernet-homepage:<tag> -n biglernet-home-test
+kubectl set image deployment/biglernet-website website=ghcr.io/<owner>/biglernet-homepage:<tag> -n biglernethome-test
 ```
 See `docs/ci-bootstrap.md` for the one-time cluster/secret setup this depends on.
 
@@ -43,8 +43,8 @@ This is a **static website** (HTML/CSS/JS) hosted by a minimal ASP.NET Core 10.0
 - **Registry**: `ghcr.io/<owner>/biglernet-homepage`
 - **Orchestration**: Kubernetes, via Kustomize overlays in `kubernetes/`:
   - `kubernetes/base/` — shared Deployment + Service
-  - `kubernetes/overlays/test/` — namespace `biglernet-home-test`, 1 replica, host `homepage-test.biglernet.com`
-  - `kubernetes/overlays/prod/` — namespace `biglernet-home-prod`, 3 replicas, hosts `biglernet.com` / `www.biglernet.com`
+  - `kubernetes/overlays/test/` — namespace `biglernethome-test`, 1 replica, host `homepage-test.biglernet.com`
+  - `kubernetes/overlays/prod/` — namespace `biglernethome-prod`, 3 replicas, hosts `biglernet.com` / `www.biglernet.com`
   - `kubernetes/bootstrap/namespaces.yaml` — applied once by hand, not by CI (see `docs/ci-bootstrap.md`)
 - **Ingress**: Traefik with TLS
 - **CI/CD**: GitHub Actions (`.github/workflows/`) — `ci.yml` builds on every push/PR; `deploy.yml` builds & pushes a multi-arch image on push to `main`, deploys to test, smoke-checks, then auto-promotes to prod. Deploy jobs run on the org's self-hosted ARC runner set (`biglernet-arc-runner-set`) so they can reach the private cluster; the image build itself runs on a GitHub-hosted runner.

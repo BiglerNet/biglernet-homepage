@@ -5,15 +5,15 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: biglernet-home-test
+  name: biglernethome-test
   labels:
-    name: biglernet-home-test
+    name: biglernethome-test
     managed-by: biglernet
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: biglernet-home-prod
+  name: biglernethome-prod
   labels:
-    name: biglernet-home-prod
+    name: biglernethome-prod
     managed-by: biglernet
