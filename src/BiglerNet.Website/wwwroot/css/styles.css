@@ -880,3 +880,35 @@ body {
         right: 10px;
     }
 }
+
+/* Legal / privacy page */
+.legal-content {
+    padding: var(--section-padding);
+    background-color: var(--bg-white);
+}
+
+.legal-content .container {
+    max-width: 800px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+.legal-content h2 {
+    color: var(--text-primary);
+    font-family: var(--font-family-heading);
+    margin: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+.legal-content p,
+.legal-content ul {
+    margin-bottom: var(--spacing-sm);
+}
+
+.legal-content ul {
+    padding-left: 1.5rem;
+    list-style: disc;
+}
+
+.legal-content a {
+    color: var(--primary-color);
+}
